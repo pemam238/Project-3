@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Interactive D3 Visualization Project</title>
+
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      background: #f7f7f7;
+      color: #222;
+    }
+
+    header {
+      background: #1f2937;
+      color: white;
+      padding: 2rem;
+      text-align: center;
+    }
+
+    main {
+      max-width: 1100px;
+      margin: 2rem auto;
+      padding: 0 1rem;
+    }
+
+    section {
+      background: white;
+      padding: 1.5rem;
+      margin-bottom: 2rem;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+
+    h1, h2 {
+      margin-top: 0;
+    }
+
+    .controls {
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+      margin-bottom: 1rem;
+    }
+
+    select, button {
+      padding: 0.5rem;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+    }
+
+    svg {
+      width: 100%;
+      height: 550px;
+      border: 1px solid #ddd;
+      border-radius: 10px;
+      background: white;
+    }
+
+    .tooltip {
+      position: absolute;
+      background: white;
+      border: 1px solid #ccc;
+      padding: 0.6rem;
+      border-radius: 8px;
+      pointer-events: none;
+      opacity: 0;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+      font-size: 14px;
+    }
+
+    .dot {
+      opacity: 0.75;
+      cursor: pointer;
+    }
+
+    .dot:hover {
+      stroke: black;
+      stroke-width: 2px;
+      opacity: 1;
+    }
+  </style>
+</head>
+
+<body>
+  <header>
+    <h1>Interactive Data Visualization Project</h1>
+    <p>Exploring patterns through D3 interaction, filtering, and tooltips</p>
+  </header>
+
+  <main>
+    <section>
+      <h2>Visualization</h2>
+
+      <p>
+        This interactive graphic allows users to explore relationships in the dataset using
+        visual encodings, filters, and details-on-demand.
+      </p>
+
+      <div class="controls">
+        <label>
+          X-Axis:
+          <select id="xSelect"></select>
+        </label>
+
+        <label>
+          Y-Axis:
+          <select id="ySelect"></select>
+        </label>
+
+        <button id="resetButton">Reset</button>
+      </div>
+
+      <svg id="chart"></svg>
+      <div class="tooltip" id="tooltip"></div>
+    </section>
+
+    <section>
+      <h2>Design Rationale</h2>
+      <p>
+        I chose a scatterplot because it is effective for comparing two quantitative variables.
+        Position on the x- and y-axes makes it easy to identify trends, clusters, and outliers.
+        Color is used to separate categories when available, while tooltips provide extra detail
+        without overcrowding the chart.
+      </p>
+
+      <p>
+        The interaction techniques include dropdown menus for changing the displayed variables
+        and tooltips for details-on-demand. These interactions help users explore multiple
+        relationships in the dataset instead of only seeing one static view.
+      </p>
+    </section>
+
+    <section>
+      <h2>Data Transformations</h2>
+      <p>
+        The data is loaded from a static CSV file. Numeric columns are converted from strings
+        into numbers so they can be accurately plotted. Missing or invalid values are filtered
+        out before drawing the chart.
+      </p>
+    </section>
+
+    <section>
+      <h2>Development Process</h2>
+      <p>
+        The project was developed by first exploring the dataset, then choosing the most
+        meaningful variables to compare. Most of the development time was spent cleaning the
+        data, setting up scales and axes, and making the interactions work smoothly.
+      </p>
+
+      <p>
+        Approximate development time: ___ people-hours.
+      </p>
+    </section>
+  </main>
+
+  <script>
+    const svg = d3.select("#chart");
+    const tooltip = d3.select("#tooltip");
+
+    const margin = { top: 40, right: 40, bottom: 70, left: 80 };
+
+    const width = 1000;
+    const height = 550;
+
+    svg.attr("viewBox", `0 0 ${width} ${height}`);
+
+    const chartWidth = width - margin.left - margin.right;
+    const chartHeight = height - margin.top - margin.bottom;
+
+    const chart = svg.append("g")
+      .attr("transform", `translate(${margin.left}, ${margin.top})`);
+
+    const xAxisGroup = chart.append("g")
+      .attr("transform", `translate(0, ${chartHeight})`);
+
+    const yAxisGroup = chart.append("g");
+
+    const xLabel = svg.append("text")
+      .attr("x", width / 2)
+      .attr("y", height - 20)
+      .attr("text-anchor", "middle")
+      .attr("font-size", "14px");
+
+    const yLabel = svg.append("text")
+      .attr("transform", "rotate(-90)")
+      .attr("x", -height / 2)
+      .attr("y", 25)
+      .attr("text-anchor", "middle")
+      .attr("font-size", "14px");
+
+    const title = svg.append("text")
+      .attr("x", width / 2)
+      .attr("y", 25)
+      .attr("text-anchor", "middle")
+      .attr("font-size", "20px")
+      .attr("font-weight", "bold");
+
+    let data;
+    let numericColumns;
+
+    d3.csv("data.csv").then(rawData => {
+      data = rawData;
+
+      // Automatically detect numeric columns
+      numericColumns = data.columns.filter(col => {
+        return data.some(d => !isNaN(+d[col]) && d[col] !== "");
+      });
+
+      // Convert numeric values
+      data.forEach(d => {
+        numericColumns.forEach(col => {
+          d[col] = +d[col];
+        });
+      });
+
+      const xSelect = d3.select("#xSelect");
+      const ySelect = d3.select("#ySelect");
+
+      xSelect.selectAll("option")
+        .data(numericColumns)
+        .join("option")
+        .attr("value", d => d)
+        .text(d => d);
+
+      ySelect.selectAll("option")
+        .data(numericColumns)
+        .join("option")
+        .attr("value", d => d)
+        .text(d => d);
+
+      xSelect.property("value", numericColumns[0]);
+      ySelect.property("value", numericColumns[1]);
+
+      updateChart();
+
+      xSelect.on("change", updateChart);
+      ySelect.on("change", updateChart);
+
+      d3.select("#resetButton").on("click", () => {
+        xSelect.property("value", numericColumns[0]);
+        ySelect.property("value", numericColumns[1]);
+        updateChart();
+      });
+    });
+
+    function updateChart() {
+      const xColumn = d3.select("#xSelect").property("value");
+      const yColumn = d3.select("#ySelect").property("value");
+
+      const filteredData = data.filter(d =>
+        !isNaN(d[xColumn]) &&
+        !isNaN(d[yColumn])
+      );
+
+      const xScale = d3.scaleLinear()
+        .domain(d3.extent(filteredData, d => d[xColumn]))
+        .nice()
+        .range([0, chartWidth]);
+
+      const yScale = d3.scaleLinear()
+        .domain(d3.extent(filteredData, d => d[yColumn]))
+        .nice()
+        .range([chartHeight, 0]);
+
+      xAxisGroup.transition()
+        .duration(700)
+        .call(d3.axisBottom(xScale));
+
+      yAxisGroup.transition()
+        .duration(700)
+        .call(d3.axisLeft(yScale));
+
+      title.text(`${yColumn} vs. ${xColumn}`);
+      xLabel.text(xColumn);
+      yLabel.text(yColumn);
+
+      chart.selectAll(".dot")
+        .data(filteredData)
+        .join(
+          enter => enter.append("circle")
+            .attr("class", "dot")
+            .attr("r", 5)
+            .attr("cx", d => xScale(d[xColumn]))
+            .attr("cy", d => yScale(d[yColumn]))
+            .attr("fill", "#2563eb")
+            .on("mousemove", function(event, d) {
+              tooltip
+                .style("opacity", 1)
+                .style("left", event.pageX + 12 + "px")
+                .style("top", event.pageY - 28 + "px")
+                .html(`
+                  <strong>${xColumn}:</strong> ${d[xColumn]}<br>
+                  <strong>${yColumn}:</strong> ${d[yColumn]}
+                `);
+            })
+            .on("mouseleave", function() {
+              tooltip.style("opacity", 0);
+            }),
+
+          update => update.transition()
+            .duration(700)
+            .attr("cx", d => xScale(d[xColumn]))
+            .attr("cy", d => yScale(d[yColumn])),
+
+          exit => exit.remove()
+        );
+    }
+  </script>
+</body>
+</html>
