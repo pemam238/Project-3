@@ -1,24 +1,56 @@
-/* ═══════════════════════════════════════════════════════════════
-   CONFIG
-═══════════════════════════════════════════════════════════════ */
-
-const heatColorScale = d3.scaleSequential()
-  .domain([0, 25])
-  .interpolator(d3.interpolateYlOrRd);
-
-const extraColorScale = d3.scaleDiverging()
-  .domain([-5, 0, 25])
-  .interpolator(t => d3.interpolateRdBu(1 - t));
-
 const SIZE = 500;
-const dLon = 0.625;
-const dLat = 0.5;
 
-/* ═══════════════════════════════════════════════════════════════
-   PROJECTION
-═══════════════════════════════════════════════════════════════ */
+let gridData = [];
+let cells;
+let currentMetric = "heatDays";
+let currentRange = null;
+let clearBrushFn = null;
 
-function makeProj() {
+const tooltip = d3.select("#tooltip");
+
+const metricConfig = {
+  heatDays: {
+    label: "Extreme heat days",
+    colorbarTitle: "Extreme heat days",
+    bins: [0, 1, 5, 10, 15, 20, 25, Infinity],
+    colors: [
+      "#f7fbff",
+      "#deebf7",
+      "#c6dbef",
+      "#9ecae1",
+      "#6baed6",
+      "#3182bd",
+      "#08519c"
+    ]
+  },
+  extraDays: {
+    label: "Extra days beyond baseline",
+    colorbarTitle: "Extra days beyond baseline",
+    bins: [-Infinity, -5, 0, 5, 10, 15, 20, Infinity],
+    colors: [
+      "#2166ac",
+      "#67a9cf",
+      "#f7f7f7",
+      "#fddbc7",
+      "#ef8a62",
+      "#d6604d",
+      "#b2182b"
+    ]
+  }
+};
+
+function getColorScale(metric) {
+  const config = metricConfig[metric];
+  return d3.scaleThreshold()
+    .domain(config.bins.slice(1, -1))
+    .range(config.colors);
+}
+
+function normalizeLon(lon) {
+  return lon > 180 ? lon - 360 : lon;
+}
+
+function makeProjection() {
   return d3.geoAzimuthalEqualArea()
     .rotate([0, -90])
     .clipAngle(35)
@@ -26,68 +58,66 @@ function makeProj() {
     .translate([SIZE / 2, SIZE / 2]);
 }
 
-function normalizeLon(lon) {
-  return lon > 180 ? lon - 360 : lon;
-}
-
-function cellGeoJSON(d) {
-  return {
-    type: "Feature",
-    geometry: {
-      type: "Polygon",
-      coordinates: [[
-        [d.lonNorm - dLon, d.lat - dLat],
-        [d.lonNorm + dLon, d.lat - dLat],
-        [d.lonNorm + dLon, d.lat + dLat],
-        [d.lonNorm - dLon, d.lat + dLat],
-        [d.lonNorm - dLon, d.lat - dLat],
-      ]]
-    }
-  };
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   TOOLTIP
-═══════════════════════════════════════════════════════════════ */
-
-const tooltip = d3.select("#tooltip");
-
-/* ═══════════════════════════════════════════════════════════════
-   DRAW MAP
-═══════════════════════════════════════════════════════════════ */
-
-function drawMap(svgId, colorFn, valueFn, gridData) {
-  const svg  = d3.select(`#${svgId}`);
-  const proj = makeProj();
+function drawMap() {
+  const svg = d3.select("#map");
+  const proj = makeProjection();
   const path = d3.geoPath(proj);
+
+  svg.selectAll("*").remove();
 
   svg.append("path")
     .datum({ type: "Sphere" })
     .attr("d", path)
-    .attr("fill", "#c9dff0")
-    .attr("stroke", "#aac5db")
-    .attr("stroke-width", 0.5);
+    .attr("fill", "#eef7fb")
+    .attr("stroke", "#9db9cc")
+    .attr("stroke-width", 0.8);
 
   svg.append("path")
     .datum(d3.geoGraticule().step([30, 10])())
     .attr("d", path)
     .attr("fill", "none")
-    .attr("stroke", "#b0c8e0")
-    .attr("stroke-width", 0.4);
+    .attr("stroke", "#c6d6df")
+    .attr("stroke-width", 0.45)
+    .attr("opacity", 0.8);
 
-  const cells = svg.selectAll(".cell")
-    .data(gridData)
-    .join("path")
+  // Lightweight basemap
+  d3.json("https://raw.githubusercontent.com/holtzy/D3-graph-gallery/master/DATA/world.geojson")
+    .then(world => {
+      svg.append("path")
+        .datum(world)
+        .attr("d", path)
+        .attr("fill", "#d8d2c4")
+        .attr("stroke", "#9f988b")
+        .attr("stroke-width", 0.45)
+        .attr("opacity", 0.85);
+
+      drawCells(svg, proj);
+    });
+}
+
+function drawCells(svg, proj) {
+  const projectedData = gridData
+    .map(d => {
+      const point = proj([d.lonNorm, d.lat]);
+      return point ? { ...d, x: point[0], y: point[1] } : null;
+    })
+    .filter(Boolean);
+
+  cells = svg.selectAll(".cell")
+    .data(projectedData)
+    .join("circle")
     .attr("class", "cell")
-    .attr("d", d => path(cellGeoJSON(d)))
-    .attr("fill", d => colorFn(valueFn(d)))
-    .attr("stroke", "none")
-    .attr("opacity", 0.9)
+    .attr("cx", d => d.x)
+    .attr("cy", d => d.y)
+    .attr("r", 3.4)
+    .attr("stroke", "#ffffff")
+    .attr("stroke-width", 0.15)
+    .attr("opacity", 0.92)
     .on("mousemove", (event, d) => {
       tooltip
         .style("opacity", 1)
-        .style("left", (event.clientX + 14) + "px")
-        .style("top",  (event.clientY - 40) + "px")
+        .style("left", `${event.clientX + 14}px`)
+        .style("top", `${event.clientY - 40}px`)
         .html(`
           <strong>${d.lat.toFixed(1)}°N, ${d.lon.toFixed(2)}°</strong><br>
           Heat days: <strong>${d.heatDays}</strong><br>
@@ -96,82 +126,87 @@ function drawMap(svgId, colorFn, valueFn, gridData) {
     })
     .on("mouseleave", () => tooltip.style("opacity", 0));
 
-  d3.json("https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json")
-    .then(world => {
-      svg.append("path")
-        .datum(topojson.mesh(world, world.objects.countries))
-        .attr("d", path)
-        .attr("fill", "none")
-        .attr("stroke", "#1f2937")
-        .attr("stroke-width", 0.8);
-    }).catch(() => {});
-
-  return cells;
+  updateMapColors();
 }
 
-/* ═══════════════════════════════════════════════════════════════
-   COLORBAR
-═══════════════════════════════════════════════════════════════ */
+function updateMapColors() {
+  const colorScale = getColorScale(currentMetric);
 
-function drawColorbar(canvasId, labelsId, colorFn, domain, ticks) {
-  const canvas = document.getElementById(canvasId);
-  const W = 400, H = 14;
-  canvas.width  = W;
-  canvas.height = H;
-  const ctx = canvas.getContext("2d");
+  cells.attr("fill", d => colorScale(d[currentMetric]));
 
-  for (let i = 0; i < W; i++) {
-    const val = domain[0] + (i / W) * (domain[domain.length - 1] - domain[0]);
-    ctx.fillStyle = colorFn(val);
-    ctx.fillRect(i, 0, 1, H);
-  }
-
-  const labelsDiv = document.getElementById(labelsId);
-  const [dMin, dMax] = [domain[0], domain[domain.length - 1]];
-  ticks.forEach(t => {
-    const lbl = document.createElement("span");
-    lbl.textContent = t;
-    labelsDiv.appendChild(lbl);
-  });
+  applyFilter();
 }
 
-/* ═══════════════════════════════════════════════════════════════
-   BRUSH HISTOGRAM
-═══════════════════════════════════════════════════════════════ */
+function drawColorbar() {
+  const config = metricConfig[currentMetric];
+  const legend = d3.select("#colorbarLegend");
 
-function drawBrush(svgId, allValues, colorFn, domain, onBrush) {
-  const node   = document.getElementById(svgId);
-  const W      = node.clientWidth || 520;
-  const H      = 90;
-  const margin = { l: 38, r: 12, t: 8, b: 28 };
-  const iW     = W - margin.l - margin.r;
-  const iH     = H - margin.t - margin.b;
+  legend.selectAll("*").remove();
 
-  const svg = d3.select(`#${svgId}`)
-    .attr("viewBox", `0 0 ${W} ${H}`);
+  const rows = legend.selectAll(".legend-item")
+    .data(config.colors)
+    .join("div")
+    .attr("class", "legend-item");
 
-  const xScale = d3.scaleLinear().domain(domain).range([0, iW]);
+  rows.append("span")
+    .attr("class", "legend-swatch")
+    .style("background", d => d);
 
-  const histogram = d3.bin()
-    .domain(domain)
-    .thresholds(xScale.ticks(24))(allValues);
+  rows.append("span")
+    .text((d, i) => {
+      const lo = config.bins[i];
+      const hi = config.bins[i + 1];
+
+      if (lo === -Infinity) return `< ${hi}`;
+      if (hi === Infinity) return `${lo}+`;
+      return `${lo}–${hi}`;
+    });
+
+  document.getElementById("colorbarTitle").textContent = config.colorbarTitle;
+}
+
+function drawBrush() {
+  const config = metricConfig[currentMetric];
+  const values = gridData.map(d => d[currentMetric]);
+
+  const svg = d3.select("#brush");
+  svg.selectAll("*").remove();
+
+  const node = document.getElementById("brush");
+  const W = node.clientWidth || 700;
+  const H = 95;
+  const margin = { l: 42, r: 16, t: 10, b: 30 };
+  const iW = W - margin.l - margin.r;
+  const iH = H - margin.t - margin.b;
+
+  svg.attr("viewBox", `0 0 ${W} ${H}`);
+
+  const extent = d3.extent(values);
+  const xScale = d3.scaleLinear()
+    .domain(extent)
+    .nice()
+    .range([0, iW]);
+
+  const bins = d3.bin()
+    .domain(xScale.domain())
+    .thresholds(xScale.ticks(24))(values);
 
   const yScale = d3.scaleLinear()
-    .domain([0, d3.max(histogram, d => d.length)])
+    .domain([0, d3.max(bins, d => d.length)])
+    .nice()
     .range([iH, 0]);
 
   const g = svg.append("g")
     .attr("transform", `translate(${margin.l},${margin.t})`);
 
-  g.selectAll("rect.hbar")
-    .data(histogram)
+  g.selectAll("rect")
+    .data(bins)
     .join("rect")
-    .attr("class", "hbar")
-    .attr("x",      d => xScale(d.x0) + 0.5)
-    .attr("width",  d => Math.max(0, xScale(d.x1) - xScale(d.x0) - 0.5))
-    .attr("y",      d => yScale(d.length))
+    .attr("x", d => xScale(d.x0) + 0.5)
+    .attr("width", d => Math.max(0, xScale(d.x1) - xScale(d.x0) - 0.5))
+    .attr("y", d => yScale(d.length))
     .attr("height", d => iH - yScale(d.length))
-    .attr("fill",   d => colorFn((d.x0 + d.x1) / 2))
+    .attr("fill", d => config.colorScale((d.x0 + d.x1) / 2))
     .attr("opacity", 0.9);
 
   g.append("g")
@@ -183,12 +218,18 @@ function drawBrush(svgId, allValues, colorFn, domain, onBrush) {
 
   const brush = d3.brushX()
     .extent([[0, 0], [iW, iH]])
-    .on("brush end", evt => {
-      if (!evt.selection) { onBrush(null); return; }
-      onBrush(evt.selection.map(xScale.invert));
+    .on("brush end", event => {
+      if (!event.selection) {
+        currentRange = null;
+      } else {
+        currentRange = event.selection.map(xScale.invert);
+      }
+
+      applyFilter();
     });
 
-  const brushG = g.append("g").call(brush);
+  const brushG = g.append("g")
+    .call(brush);
 
   brushG.select(".selection")
     .attr("fill", "#2563eb")
@@ -196,87 +237,77 @@ function drawBrush(svgId, allValues, colorFn, domain, onBrush) {
     .attr("stroke", "#2563eb")
     .attr("stroke-width", 1);
 
-  return () => brushG.call(brush.move, null);
+  clearBrushFn = () => brushG.call(brush.move, null);
 }
 
-/* ═══════════════════════════════════════════════════════════════
-   FILTER STATE + APPLY
-═══════════════════════════════════════════════════════════════ */
+function applyFilter() {
+  if (!cells) return;
 
-let heatRange  = null;
-let extraRange = null;
-let leftCells, rightCells, totalCount;
-
-function applyFilters() {
   let visible = 0;
 
-  [leftCells, rightCells].forEach(cells => {
-    cells.each(function(d) {
-      const okH = !heatRange  || (d.heatDays  >= heatRange[0]  && d.heatDays  <= heatRange[1]);
-      const okE = !extraRange || (d.extraDays >= extraRange[0] && d.extraDays <= extraRange[1]);
-      const show = okH && okE;
-      if (show) visible++;
-      d3.select(this).classed("dimmed", !show).attr("opacity", show ? 0.9 : 0.07);
-    });
+  cells.each(function(d) {
+    const value = d[currentMetric];
+
+    const show = !currentRange ||
+      (value >= currentRange[0] && value <= currentRange[1]);
+
+    if (show) visible++;
+
+    d3.select(this)
+      .classed("dimmed", !show)
+      .attr("opacity", show ? 0.85 : 0.07);
   });
-
-  visible = Math.round(visible / 2);
-
-  document.getElementById("info-left").innerHTML = heatRange
-    ? `Filtering <span>${heatRange[0].toFixed(1)}–${heatRange[1].toFixed(1)}</span> heat days`
-    : "Showing all values";
-
-  document.getElementById("info-right").innerHTML = extraRange
-    ? `Filtering <span>${extraRange[0].toFixed(1)}–${extraRange[1].toFixed(1)}</span> extra days`
-    : "Showing all values";
 
   document.getElementById("countLabel").textContent =
-    `${visible.toLocaleString()} of ${totalCount.toLocaleString()} cells visible`;
+    `${visible.toLocaleString()} of ${gridData.length.toLocaleString()} points visible`;
+
+  document.getElementById("brushInfo").innerHTML = currentRange
+    ? `Filtering <span>${currentRange[0].toFixed(1)}–${currentRange[1].toFixed(1)}</span> ${metricConfig[currentMetric].label}`
+    : "Showing all values";
 }
 
-/* ═══════════════════════════════════════════════════════════════
-   INIT — load CSV then wire everything up
-═══════════════════════════════════════════════════════════════ */
+function updateMetric() {
+  currentMetric = document.getElementById("metricSelect").value;
+  currentRange = null;
+
+  updateMapColors();
+  drawColorbar();
+  drawBrush();
+  applyFilter();
+}
 
 d3.csv("arctic_data.csv").then(raw => {
-  const gridData = raw.map(d => ({
-    lat:       +d.lat,
-    lon:       +d.lon,
-    lonNorm:   normalizeLon(+d.lon),
-    heatDays:  +d.heatDays,
-    extraDays: +d.extraDays,
-  })).filter(d => !isNaN(d.heatDays) && !isNaN(d.extraDays));
-
-  totalCount = gridData.length;
+  gridData = raw.map(d => ({
+    lat: +d.lat,
+    lon: +d.lon,
+    lonNorm: normalizeLon(+d.lon),
+    heatDays: +d.heatDays,
+    extraDays: +d.extraDays
+  })).filter(d =>
+    !isNaN(d.lat) &&
+    !isNaN(d.lon) &&
+    !isNaN(d.heatDays) &&
+    !isNaN(d.extraDays)
+  );
 
   document.getElementById("loading").style.display = "none";
-  document.getElementById("viz").style.display     = "block";
+  document.getElementById("viz").style.display = "block";
 
-  leftCells  = drawMap("map-left",  heatColorScale,  d => d.heatDays,  gridData);
-  rightCells = drawMap("map-right", extraColorScale, d => d.extraDays, gridData);
+  drawMap();
+  drawColorbar();
+  drawBrush();
+  applyFilter();
 
-  drawColorbar("cbar-left",  "cbar-left-labels",  heatColorScale,  [0, 25],  [0, 5, 10, 15, 20, 25]);
-  drawColorbar("cbar-right", "cbar-right-labels", extraColorScale, [-5, 25], [-5, 0, 5, 10, 15, 20, 25]);
+  document.getElementById("metricSelect").addEventListener("change", updateMetric);
 
-  const heatExtent  = d3.extent(gridData, d => d.heatDays);
-  const extraExtent = d3.extent(gridData, d => d.extraDays);
-
-  const clearLeft  = drawBrush("brush-left",  gridData.map(d => d.heatDays),
-    heatColorScale,  heatExtent,  r => { heatRange  = r; applyFilters(); });
-
-  const clearRight = drawBrush("brush-right", gridData.map(d => d.extraDays),
-    extraColorScale, extraExtent, r => { extraRange = r; applyFilters(); });
-
-  document.getElementById("resetAll").addEventListener("click", () => {
-    heatRange = extraRange = null;
-    clearLeft();
-    clearRight();
-    applyFilters();
+  document.getElementById("resetFilter").addEventListener("click", () => {
+    currentRange = null;
+    if (clearBrushFn) clearBrushFn();
+    applyFilter();
   });
 
-  applyFilters();
-
-}).catch(() => {
+}).catch(error => {
+  console.error(error);
   document.getElementById("loading").textContent =
-    "Could not load arctic_data.csv — make sure it is in the same folder as this HTML file.";
+    "Could not load arctic_data.csv — make sure it is in the same folder as index.html.";
 });
