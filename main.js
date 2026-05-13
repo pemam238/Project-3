@@ -125,17 +125,29 @@ function drawMap() {
     .attr("stroke-width", 0.5)
     .attr("opacity", 0.45);
 
-  d3.json("https://raw.githubusercontent.com/holtzy/D3-graph-gallery/master/DATA/world.geojson")
+    d3.json("https://raw.githubusercontent.com/holtzy/D3-graph-gallery/master/DATA/world.geojson")
     .then(world => {
+      // draw heat polygons first
       drawCells(svg, proj);
-
+  
+      // white halo behind coastline
       svg.append("path")
         .datum(world)
         .attr("d", path)
-        .attr("fill", "#f4f4f4")
-        .attr("stroke", "#000")
-        .attr("stroke-width", 1.4)
-        .attr("opacity", 1)
+        .attr("fill", "none")
+        .attr("stroke", "#ffffff")
+        .attr("stroke-width", 4.5)
+        .attr("stroke-opacity", 0.95)
+        .style("pointer-events", "none");
+  
+      // black coastline on top
+      svg.append("path")
+        .datum(world)
+        .attr("d", path)
+        .attr("fill", "none")
+        .attr("stroke", "#000000")
+        .attr("stroke-width", 2)
+        .attr("stroke-opacity", 1)
         .style("pointer-events", "none");
     });
 }
