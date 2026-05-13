@@ -34,9 +34,6 @@
             <option value="extraDays">Extra days beyond baseline</option>
           </select>
         </label>
-
-        <button id="resetFilter">Reset filter</button>
-        <span id="countLabel" style="font-size:13px; color:#6b7280;"></span>
       </div>
 
       <div id="loading">Loading data…</div>
@@ -253,89 +250,4 @@ df[['lat','lon','heatDays','extraDays']].dropna().to_csv('arctic_data.csv', inde
     }
   </style>
 </head>
-
-<body>
-  <header>
-    <h1>Extreme Arctic Heat Becomes More Frequent Under Abrupt CO&#x2082; Quadrupling</h1>
-    <p>
-      Arctic summer temperature extremes compared against an early-period 95th percentile threshold.
-    </p>
-  </header>
-
-  <main>
-    <section>
-      <h2>Visualization</h2>
-      <p>
-        Each dot represents a grid point above ~60°N. Use the dropdown to switch metrics,
-        brush the histogram to filter values, and hover points for exact data.
-      </p>
-
-      <div class="controls">
-        <label>
-          Metric:
-          <select id="metricSelect">
-            <option value="heatDays">Extreme heat days</option>
-            <option value="extraDays">Extra days beyond baseline</option>
-          </select>
-        </label>
-
-        <button id="resetFilter">Reset filter</button>
-        <span id="countLabel" style="font-size:13px; color:#6b7280;"></span>
-      </div>
-
-      <div id="loading">Loading data…</div>
-
-      <div id="viz" style="display:none;">
-        <svg id="map" viewBox="0 0 500 500"></svg>
-
-        <div style="max-width:420px; margin:0 auto;">
-          <canvas id="colorbar" class="colorbar-canvas"></canvas>
-          <div class="colorbar-labels" id="colorbarLabels"></div>
-          <div class="colorbar-title" id="colorbarTitle"></div>
-        </div>
-
-        <svg id="brush"></svg>
-        <div class="brush-info" id="brushInfo">Showing all values</div>
-      </div>
-    </section>
-
-    <section>
-      <h2>Design Rationale</h2>
-      <p>
-        This version uses a North Pole-centered azimuthal equal-area projection,
-        but represents each grid cell as a lightweight circle instead of a full SVG polygon.
-        This keeps the Arctic spatial pattern while making the page much faster to load.
-      </p>
-    </section>
-
-    <section>
-      <h2>Data Transformations</h2>
-      <p>
-        Data is loaded from <code>arctic_data.csv</code>. Longitudes above 180° are converted
-        to the −180 to 180 range for D3 projection.
-      </p>
-
-      <pre>
-heat_df  = heatwave_days.to_dataframe(name='heatDays').reset_index()
-extra_df = extra_days.to_dataframe(name='extraDays').reset_index()
-df = heat_df.merge(extra_df, on=['lat','lon'])
-df[['lat','lon','heatDays','extraDays']].dropna().to_csv('arctic_data.csv', index=False)</pre>
-    </section>
-
-    <section>
-      <h2>Development Process</h2>
-      <p>
-        I first attempted to reproduce the original map using SVG grid polygons, but the full
-        dataset created too many projected paths in the browser. I simplified the design by
-        plotting projected grid points as circles, then added a metric toggle, colorbar,
-        tooltip, and brush-based filtering with D3.
-      </p>
-      <p>Approximate development time: ___ people-hours.</p>
-    </section>
-  </main>
-
-  <div class="tooltip" id="tooltip"></div>
-
-  <script src="main.js"></script>
-</body>
 </html>
