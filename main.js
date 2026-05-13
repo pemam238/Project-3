@@ -1,4 +1,6 @@
 const SIZE = 500;
+const CELL_SIZE = 4; // use 5 for fewer polygons, 3 for more detail
+const CELL_PAD = CELL_SIZE * 0.08;
 
 let gridData = [];
 let cells;
@@ -14,13 +16,13 @@ const metricConfig = {
     colorbarTitle: "Extreme heat days",
     bins: [0, 1, 5, 10, 15, 20, 25, Infinity],
     colors: [
-      "#f7fbff",
-      "#deebf7",
-      "#c6dbef",
-      "#9ecae1",
-      "#6baed6",
-      "#3182bd",
-      "#08519c"
+      "#fff5f0",
+      "#fee0d2",
+      "#fcbba1",
+      "#fc9272",
+      "#fb6a4a",
+      "#de2d26",
+      "#a50f15"
     ]
   },
   extraDays: {
@@ -41,6 +43,7 @@ const metricConfig = {
 
 function getColorScale(metric) {
   const config = metricConfig[metric];
+
   return d3.scaleThreshold()
     .domain(config.bins.slice(1, -1))
     .range(config.colors);
@@ -48,6 +51,47 @@ function getColorScale(metric) {
 
 function normalizeLon(lon) {
   return lon > 180 ? lon - 360 : lon;
+}
+
+function aggregateByGrid(data) {
+  const cleaned = data.map(d => ({
+    lat: +d.lat,
+    lon: +d.lon,
+    lonNorm: normalizeLon(+d.lon),
+    heatDays: +d.heatDays,
+    extraDays: +d.extraDays
+  })).filter(d =>
+    !isNaN(d.lat) &&
+    !isNaN(d.lonNorm) &&
+    !isNaN(d.heatDays) &&
+    !isNaN(d.extraDays) &&
+    d.lat >= 55
+  );
+
+  const grouped = d3.rollups(
+    cleaned,
+    v => {
+      const latBin = Math.floor(d3.mean(v, d => d.lat) / CELL_SIZE) * CELL_SIZE;
+      const lonBin = Math.floor(d3.mean(v, d => d.lonNorm) / CELL_SIZE) * CELL_SIZE;
+
+      return {
+        lat: latBin + CELL_SIZE / 2,
+        lon: lonBin + CELL_SIZE / 2,
+        lonNorm: lonBin + CELL_SIZE / 2,
+        latBin,
+        lonBin,
+        heatDays: d3.mean(v, d => d.heatDays),
+        extraDays: d3.mean(v, d => d.extraDays),
+        count: v.length
+      };
+    },
+    d => Math.floor(d.lat / CELL_SIZE) * CELL_SIZE,
+    d => Math.floor(d.lonNorm / CELL_SIZE) * CELL_SIZE
+  );
+
+  return grouped.flatMap(([latBin, lonGroups]) =>
+    lonGroups.map(([lonBin, values]) => values)
+  );
 }
 
 function makeProjection() {
@@ -69,59 +113,74 @@ function drawMap() {
     .datum({ type: "Sphere" })
     .attr("d", path)
     .attr("fill", "#eef7fb")
-    .attr("stroke", "#9db9cc")
-    .attr("stroke-width", 0.8);
+    .attr("stroke", "#7f9fb3")
+    .attr("stroke-width", 1);
 
   svg.append("path")
     .datum(d3.geoGraticule().step([30, 10])())
     .attr("d", path)
     .attr("fill", "none")
-    .attr("stroke", "#c6d6df")
-    .attr("stroke-width", 0.45)
-    .attr("opacity", 0.8);
+    .attr("stroke", "#b6c7d0")
+    .attr("stroke-width", 0.5)
+    .attr("opacity", 0.9);
 
-  // Lightweight basemap
   d3.json("https://raw.githubusercontent.com/holtzy/D3-graph-gallery/master/DATA/world.geojson")
     .then(world => {
       svg.append("path")
         .datum(world)
         .attr("d", path)
         .attr("fill", "#d8d2c4")
-        .attr("stroke", "#9f988b")
-        .attr("stroke-width", 0.45)
-        .attr("opacity", 0.85);
+        .attr("stroke", "#374151")
+        .attr("stroke-width", 0.9)
+        .attr("opacity", 1);
 
       drawCells(svg, proj);
     });
 }
 
 function drawCells(svg, proj) {
-  const projectedData = gridData
-    .map(d => {
-      const point = proj([d.lonNorm, d.lat]);
-      return point ? { ...d, x: point[0], y: point[1] } : null;
-    })
-    .filter(Boolean);
+  const path = d3.geoPath(proj);
 
-  cells = svg.selectAll(".cell")
-    .data(projectedData)
-    .join("circle")
+  const cellPolygons = gridData.map(d => {
+    const lat0 = d.latBin - CELL_PAD;
+    const lat1 = d.latBin + CELL_SIZE + CELL_PAD;
+    const lon0 = d.lonBin - CELL_PAD;
+    const lon1 = d.lonBin + CELL_SIZE + CELL_PAD;
+
+    return {
+      ...d,
+      geometry: {
+        type: "Polygon",
+        coordinates: [[
+          [lon0, lat0],
+          [lon1, lat0],
+          [lon1, lat1],
+          [lon0, lat1],
+          [lon0, lat0]
+        ]]
+      }
+    };
+  });
+
+  cells = svg.append("g")
+    .attr("class", "cells-layer")
+    .selectAll(".cell")
+    .data(cellPolygons)
+    .join("path")
     .attr("class", "cell")
-    .attr("cx", d => d.x)
-    .attr("cy", d => d.y)
-    .attr("r", 3.4)
-    .attr("stroke", "#ffffff")
-    .attr("stroke-width", 0.15)
-    .attr("opacity", 0.92)
+    .attr("d", d => path(d.geometry))
+    .attr("stroke", "none")
+    .attr("opacity", 0.9)
     .on("mousemove", (event, d) => {
       tooltip
         .style("opacity", 1)
         .style("left", `${event.clientX + 14}px`)
         .style("top", `${event.clientY - 40}px`)
         .html(`
-          <strong>${d.lat.toFixed(1)}°N, ${d.lon.toFixed(2)}°</strong><br>
-          Heat days: <strong>${d.heatDays}</strong><br>
-          Extra days: <strong>${d.extraDays > 0 ? "+" : ""}${d.extraDays}</strong>
+          <strong>${d.lat.toFixed(1)}°N, ${d.lonNorm.toFixed(1)}°</strong><br>
+          Heat days: <strong>${d.heatDays.toFixed(1)}</strong><br>
+          Extra days: <strong>${d.extraDays > 0 ? "+" : ""}${d.extraDays.toFixed(1)}</strong><br>
+          Original points: <strong>${d.count}</strong>
         `);
     })
     .on("mouseleave", () => tooltip.style("opacity", 0));
@@ -130,10 +189,10 @@ function drawCells(svg, proj) {
 }
 
 function updateMapColors() {
+  if (!cells) return;
+
   const colorScale = getColorScale(currentMetric);
-
   cells.attr("fill", d => colorScale(d[currentMetric]));
-
   applyFilter();
 }
 
@@ -167,6 +226,7 @@ function drawColorbar() {
 
 function drawBrush() {
   const config = metricConfig[currentMetric];
+  const colorScale = getColorScale(currentMetric);
   const values = gridData.map(d => d[currentMetric]);
 
   const svg = d3.select("#brush");
@@ -182,6 +242,7 @@ function drawBrush() {
   svg.attr("viewBox", `0 0 ${W} ${H}`);
 
   const extent = d3.extent(values);
+
   const xScale = d3.scaleLinear()
     .domain(extent)
     .nice()
@@ -206,7 +267,7 @@ function drawBrush() {
     .attr("width", d => Math.max(0, xScale(d.x1) - xScale(d.x0) - 0.5))
     .attr("y", d => yScale(d.length))
     .attr("height", d => iH - yScale(d.length))
-    .attr("fill", d => config.colorScale((d.x0 + d.x1) / 2))
+    .attr("fill", d => colorScale((d.x0 + d.x1) / 2))
     .attr("opacity", 0.9);
 
   g.append("g")
@@ -255,11 +316,11 @@ function applyFilter() {
 
     d3.select(this)
       .classed("dimmed", !show)
-      .attr("opacity", show ? 0.85 : 0.07);
+      .attr("opacity", show ? 0.9 : 0.04);
   });
 
   document.getElementById("countLabel").textContent =
-    `${visible.toLocaleString()} of ${gridData.length.toLocaleString()} points visible`;
+    `${visible.toLocaleString()} of ${gridData.length.toLocaleString()} aggregated cells visible`;
 
   document.getElementById("brushInfo").innerHTML = currentRange
     ? `Filtering <span>${currentRange[0].toFixed(1)}–${currentRange[1].toFixed(1)}</span> ${metricConfig[currentMetric].label}`
@@ -277,18 +338,7 @@ function updateMetric() {
 }
 
 d3.csv("arctic_data.csv").then(raw => {
-  gridData = raw.map(d => ({
-    lat: +d.lat,
-    lon: +d.lon,
-    lonNorm: normalizeLon(+d.lon),
-    heatDays: +d.heatDays,
-    extraDays: +d.extraDays
-  })).filter(d =>
-    !isNaN(d.lat) &&
-    !isNaN(d.lon) &&
-    !isNaN(d.heatDays) &&
-    !isNaN(d.extraDays)
-  );
+  gridData = aggregateByGrid(raw);
 
   document.getElementById("loading").style.display = "none";
   document.getElementById("viz").style.display = "block";
