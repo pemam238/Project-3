@@ -1,5 +1,5 @@
 const SIZE = 500;
-const CELL_SIZE = 4; // use 5 for fewer polygons, 3 for more detail
+const CELL_SIZE = 4;
 const CELL_PAD = CELL_SIZE * 0.08;
 
 let gridData = [];
@@ -16,27 +16,28 @@ const metricConfig = {
     colorbarTitle: "Extreme heat days",
     bins: [0, 1, 5, 10, 15, 20, 25, Infinity],
     colors: [
-      "#fff5f0",
-      "#fee0d2",
-      "#fcbba1",
-      "#fc9272",
-      "#fb6a4a",
-      "#de2d26",
-      "#a50f15"
+      "#fff200",
+      "#ffd000",
+      "#ffb300",
+      "#ff7b00",
+      "#ff3b00",
+      "#e00000",
+      "#8b0000"
     ]
   },
+
   extraDays: {
     label: "Extra days beyond baseline",
     colorbarTitle: "Extra days beyond baseline",
     bins: [-Infinity, -5, 0, 5, 10, 15, 20, Infinity],
     colors: [
-      "#2166ac",
-      "#67a9cf",
-      "#f7f7f7",
-      "#fddbc7",
-      "#ef8a62",
-      "#d6604d",
-      "#b2182b"
+      "#fff7bc",
+      "#fee391",
+      "#fec44f",
+      "#fe9929",
+      "#ec7014",
+      "#cc4c02",
+      "#990000"
     ]
   }
 };
@@ -112,29 +113,30 @@ function drawMap() {
   svg.append("path")
     .datum({ type: "Sphere" })
     .attr("d", path)
-    .attr("fill", "#eef7fb")
-    .attr("stroke", "#7f9fb3")
-    .attr("stroke-width", 1);
+    .attr("fill", "#ffffff")
+    .attr("stroke", "#000")
+    .attr("stroke-width", 1.2);
 
   svg.append("path")
     .datum(d3.geoGraticule().step([30, 10])())
     .attr("d", path)
     .attr("fill", "none")
-    .attr("stroke", "#b6c7d0")
+    .attr("stroke", "#888")
     .attr("stroke-width", 0.5)
-    .attr("opacity", 0.9);
+    .attr("opacity", 0.45);
 
   d3.json("https://raw.githubusercontent.com/holtzy/D3-graph-gallery/master/DATA/world.geojson")
     .then(world => {
+      drawCells(svg, proj);
+
       svg.append("path")
         .datum(world)
         .attr("d", path)
-        .attr("fill", "#d8d2c4")
-        .attr("stroke", "#374151")
-        .attr("stroke-width", 0.9)
-        .attr("opacity", 1);
-
-      drawCells(svg, proj);
+        .attr("fill", "#f4f4f4")
+        .attr("stroke", "#000")
+        .attr("stroke-width", 1.4)
+        .attr("opacity", 1)
+        .style("pointer-events", "none");
     });
 }
 
@@ -143,7 +145,7 @@ function drawCells(svg, proj) {
 
   const cellPolygons = gridData.map(d => {
     const lat0 = d.latBin - CELL_PAD;
-    const lat1 = d.latBin + CELL_SIZE + CELL_PAD;
+    const lat1 = Math.min(d.latBin + CELL_SIZE + CELL_PAD, 89.5);
     const lon0 = d.lonBin - CELL_PAD;
     const lon1 = d.lonBin + CELL_SIZE + CELL_PAD;
 
@@ -153,9 +155,9 @@ function drawCells(svg, proj) {
         type: "Polygon",
         coordinates: [[
           [lon0, lat0],
-          [lon1, lat0],
-          [lon1, lat1],
           [lon0, lat1],
+          [lon1, lat1],
+          [lon1, lat0],
           [lon0, lat0]
         ]]
       }
@@ -170,7 +172,7 @@ function drawCells(svg, proj) {
     .attr("class", "cell")
     .attr("d", d => path(d.geometry))
     .attr("stroke", "none")
-    .attr("opacity", 0.9)
+    .attr("opacity", 0.72)
     .on("mousemove", (event, d) => {
       tooltip
         .style("opacity", 1)
@@ -316,7 +318,7 @@ function applyFilter() {
 
     d3.select(this)
       .classed("dimmed", !show)
-      .attr("opacity", show ? 0.9 : 0.04);
+      .attr("opacity", show ? 0.72 : 0.02);
   });
 
   document.getElementById("countLabel").textContent =
