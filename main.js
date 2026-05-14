@@ -15,14 +15,13 @@ const metricConfig = {
   heatDays: {
     label: "Extreme heat days",
     colorbarTitle: "Extreme heat days",
-    bins: [0, 1, 5, 10, 15, 20, 25, Infinity],
+    bins: [0, 1, 5, 10, 15, 20, Infinity],
     colors: [
       "#fff200",
       "#ffd000",
       "#ffb300",
       "#ff7b00",
       "#ff3b00",
-      "#e00000",
       "#8b0000"
     ]
   },
@@ -30,15 +29,13 @@ const metricConfig = {
   extraDays: {
     label: "Extra days beyond baseline",
     colorbarTitle: "Extra days beyond baseline",
-    bins: [-Infinity, -5, 0, 5, 10, 15, 20, Infinity],
+    bins: [-5, 0, 5, 10, 15, 20],
     colors: [
-      "#fff7bc",
-      "#fee391",
-      "#fec44f",
-      "#fe9929",
-      "#ec7014",
-      "#cc4c02",
-      "#990000"
+      "#2166ac",
+      "#d1e5f0",
+      "#f7f7f7",
+      "#fddbc7",
+      "#b2182b"
     ]
   }
 };
@@ -112,17 +109,17 @@ function drawMap() {
   svg.selectAll("*").remove();
 
   svg.append("defs").append("clipPath")
-  .attr("id", "sphere-clip")
-  .append("circle")
-  .attr("cx", SIZE / 2)
-  .attr("cy", SIZE / 2)
-  .attr("r", MAP_RADIUS);
+    .attr("id", "sphere-clip")
+    .append("circle")
+    .attr("cx", SIZE / 2)
+    .attr("cy", SIZE / 2)
+    .attr("r", MAP_RADIUS);
 
- svg.append("path")
-  .datum({ type: "Sphere" })
-  .attr("d", path)
-  .attr("fill", "none")
-  .attr("stroke", "none");
+  svg.append("path")
+    .datum({ type: "Sphere" })
+    .attr("d", path)
+    .attr("fill", "none")
+    .attr("stroke", "none");
 
   svg.append("path")
     .datum(d3.geoGraticule().step([30, 10])())
@@ -132,92 +129,87 @@ function drawMap() {
     .attr("stroke-width", 0.5)
     .attr("opacity", 0.45)
     .attr("clip-path", "url(#sphere-clip)");
-  
 
-    d3.json("world.geojson")
-    .then(world => {
-      // draw heat polygons first
-      drawCells(svg, proj);
-      svg.select(".cells-layer").attr("clip-path", "url(#sphere-clip)");  
+  d3.json("world.geojson").then(world => {
+    drawCells(svg, proj);
+    svg.select(".cells-layer").attr("clip-path", "url(#sphere-clip)");
 
-    // overlay for land (remove if not wanted)
     svg.append("path")
       .datum(world)
       .attr("d", path)
-      .attr("fill", "rgba(100, 97, 97, 0.18)")
+      .attr("fill", "rgba(100, 97, 97, 0.08)")
       .attr("stroke", "none")
       .style("pointer-events", "none")
       .attr("clip-path", "url(#sphere-clip)");
 
-  
-      // white halo behind coastline
-      svg.append("path")
-        .datum(world)
-        .attr("d", path)
-        .attr("fill", "none")
-        .attr("stroke", "#ffffff")
-        .attr("stroke-width", 4.5)
-        .attr("stroke-opacity", 0.95)
-        .style("pointer-events", "none")
-        .attr("clip-path", "url(#sphere-clip)");
-  
-      // black coastline on top
-      svg.append("path")
-        .datum(world)
-        .attr("d", path)
-        .attr("fill", "none")
-        .attr("stroke", "#000000")
-        .attr("stroke-width", 1.3)
-        .attr("stroke-opacity", 1)
-        .style("pointer-events", "none")
-        .attr("clip-path", "url(#sphere-clip)");
+    svg.append("path")
+      .datum(world)
+      .attr("d", path)
+      .attr("fill", "none")
+      .attr("stroke", "#ffffff")
+      .attr("stroke-width", 4.5)
+      .attr("stroke-opacity", 0.95)
+      .style("pointer-events", "none")
+      .attr("clip-path", "url(#sphere-clip)");
 
-      const latLabels = [62, 72, 82];
-      latLabels.forEach(lat => {
-        [0, 180].forEach(lon => {
-          const pt = proj([lon, lat]);
-          if (!pt) return;
-          svg.append("text")
-            .attr("x", pt[0])
-            .attr("y", pt[1] - 3)
-            .attr("font-size", 6)
-            .attr("fill", "#333")
-            .attr("text-anchor", "middle")
-            .attr("paint-order", "stroke")
-            .attr("stroke", "white")
-            .attr("stroke-width", 2)
-            .attr("stroke-linejoin", "round")
-            .text(`${lat}°N`);
-        });
-      });
+    svg.append("path")
+      .datum(world)
+      .attr("d", path)
+      .attr("fill", "none")
+      .attr("stroke", "#000000")
+      .attr("stroke-width", 1.3)
+      .attr("stroke-opacity", 1)
+      .style("pointer-events", "none")
+      .attr("clip-path", "url(#sphere-clip)");
 
-      // Longitude spoke labels — projected just outside the circle boundary
-      const lonLabels = d3.range(-180, 180, 30);
-      const cx = SIZE / 2;
-      const cy = SIZE / 2;
-      const r = MAP_RADIUS;
-
-      lonLabels.forEach(lon => {
-        const pt = proj([lon, 55]);
+    const latLabels = [62, 72, 82];
+    latLabels.forEach(lat => {
+      [0, 180].forEach(lon => {
+        const pt = proj([lon, lat]);
         if (!pt) return;
 
-        // compute direction from center and push label outside the circle
-        const dx = pt[0] - cx;
-        const dy = pt[1] - cy;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        const scale = (r+10) / dist;
-
         svg.append("text")
-          .attr("x", cx + dx * scale)
-          .attr("y", cy + dy * scale)
-          .attr("font-size", 9)
-          .attr("fill", "#333")
+          .attr("x", pt[0])
+          .attr("y", pt[1] - 3)
+          .attr("font-size", 11)
+          .attr("fill", "#111")
           .attr("text-anchor", "middle")
-          .attr("alignment-baseline", "middle")
-          .text(`${lon}°`);
-        });
-
+          .attr("paint-order", "stroke")
+          .attr("stroke", "white")
+          .attr("stroke-width", 3)
+          .attr("stroke-linejoin", "round")
+          .text(`${lat}°N`);
+      });
     });
+
+    const lonLabels = d3.range(-180, 180, 30);
+    const cx = SIZE / 2;
+    const cy = SIZE / 2;
+    const r = MAP_RADIUS;
+
+    lonLabels.forEach(lon => {
+      const pt = proj([lon, 55]);
+      if (!pt) return;
+
+      const dx = pt[0] - cx;
+      const dy = pt[1] - cy;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      const scale = (r + 13) / dist;
+
+      svg.append("text")
+        .attr("x", cx + dx * scale)
+        .attr("y", cy + dy * scale)
+        .attr("font-size", 12)
+        .attr("fill", "#111")
+        .attr("text-anchor", "middle")
+        .attr("alignment-baseline", "middle")
+        .attr("paint-order", "stroke")
+        .attr("stroke", "white")
+        .attr("stroke-width", 3)
+        .attr("stroke-linejoin", "round")
+        .text(`${lon}°`);
+    });
+  });
 }
 
 function drawCells(svg, proj) {
@@ -252,7 +244,7 @@ function drawCells(svg, proj) {
     .attr("class", "cell")
     .attr("d", d => path(d.geometry))
     .attr("stroke", "none")
-    .attr("opacity", 0.72)
+    .attr("opacity", 0.88)
     .on("mousemove", (event, d) => {
       tooltip
         .style("opacity", 1)
@@ -284,30 +276,32 @@ function drawColorbar() {
 
   legend.selectAll("*").remove();
 
+  const legendData = config.colors.map((color, i) => ({
+    color,
+    lo: config.bins[i],
+    hi: config.bins[i + 1]
+  }));
+
   const rows = legend.selectAll(".legend-item")
-    .data(config.colors)
+    .data(legendData)
     .join("div")
     .attr("class", "legend-item");
 
   rows.append("span")
     .attr("class", "legend-swatch")
-    .style("background", d => d);
+    .style("background", d => d.color);
 
   rows.append("span")
-    .text((d, i) => {
-      const lo = config.bins[i];
-      const hi = config.bins[i + 1];
-
-      if (lo === -Infinity) return `< ${hi}`;
-      if (hi === Infinity) return `${lo}+`;
-      return `${lo}–${hi}`;
+    .text(d => {
+      if (d.lo === -Infinity) return `< ${d.hi}`;
+      if (d.hi === Infinity) return `${d.lo}+`;
+      return `${d.lo}–${d.hi}`;
     });
 
   document.getElementById("colorbarTitle").textContent = config.colorbarTitle;
 }
 
 function drawBrush() {
-  const config = metricConfig[currentMetric];
   const colorScale = getColorScale(currentMetric);
   const values = gridData.map(d => d[currentMetric]);
 
@@ -334,15 +328,9 @@ function drawBrush() {
     .domain(xScale.domain())
     .thresholds(xScale.ticks(24))(values);
 
-  // const yScale = d3.scaleLinear()
-  //   .domain([0, d3.max(bins, d => d.length)])
-  //   .nice()
-  //   .range([iH, 0]);
-
-  // make it show better by using sqrt scaling
   const yScale = d3.scaleSqrt()
-  .domain([0, d3.max(bins, d => d.length)])
-  .range([iH, 0]);
+    .domain([0, d3.max(bins, d => d.length)])
+    .range([iH, 0]);
 
   const g = svg.append("g")
     .attr("transform", `translate(${margin.l},${margin.t})`);
@@ -403,7 +391,7 @@ function applyFilter() {
 
     d3.select(this)
       .classed("dimmed", !show)
-      .attr("opacity", show ? 0.72 : 0.02);
+      .attr("opacity", show ? 0.88 : 0.02);
   });
 
   document.getElementById("countLabel").textContent =
