@@ -99,7 +99,7 @@ function makeProjection() {
   return d3.geoAzimuthalEqualArea()
     .rotate([0, -90])
     .clipAngle(35)
-    .scale(SIZE * 0.94)
+    .scale(SIZE * 0.60)
     .translate([SIZE / 2, SIZE / 2]);
 }
 
@@ -115,7 +115,7 @@ function drawMap() {
   .append("circle")
   .attr("cx", SIZE / 2)
   .attr("cy", SIZE / 2)
-  .attr("r", SIZE * 0.49);
+  .attr("r", SIZE * 0.31);
 
  svg.append("path")
   .datum({ type: "Sphere" })
@@ -166,7 +166,7 @@ function drawMap() {
         .attr("d", path)
         .attr("fill", "none")
         .attr("stroke", "#000000")
-        .attr("stroke-width", 2)
+        .attr("stroke-width", 1.3)
         .attr("stroke-opacity", 1)
         .style("pointer-events", "none")
         .attr("clip-path", "url(#sphere-clip)");
@@ -179,12 +179,12 @@ function drawMap() {
           svg.append("text")
             .attr("x", pt[0])
             .attr("y", pt[1] - 3)
-            .attr("font-size", 9)
+            .attr("font-size", 6)
             .attr("fill", "#333")
             .attr("text-anchor", "middle")
             .attr("paint-order", "stroke")
             .attr("stroke", "white")
-            .attr("stroke-width", 3)
+            .attr("stroke-width", 2)
             .attr("stroke-linejoin", "round")
             .text(`${lat}°N`);
         });
@@ -194,7 +194,7 @@ function drawMap() {
       const lonLabels = d3.range(-180, 180, 30);
       const cx = SIZE / 2;
       const cy = SIZE / 2;
-      const r = SIZE * 0.49;
+      const r = SIZE * 0.31;
 
       lonLabels.forEach(lon => {
         const pt = proj([lon, 55]);
@@ -204,7 +204,7 @@ function drawMap() {
         const dx = pt[0] - cx;
         const dy = pt[1] - cy;
         const dist = Math.sqrt(dx * dx + dy * dy);
-        const scale = (r + 14) / dist;
+        const scale = (r+10) / dist;
 
         svg.append("text")
           .attr("x", cx + dx * scale)
