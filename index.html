@@ -100,56 +100,46 @@
         polygon instead of a full-resolution raster or SVG-heavy map.
         This preserves Arctic spatial patterns while keeping the page
         performant and interactive in the browser.
+
+        Our main goal was to clearly communicate how extreme Arctic heat 
+        events become more frequent under abrupt CO₂ quadrupling while keeping 
+        the visualization intuitive and interactive. Because the CMIP6 climate 
+        data contained information from the entire world, we decided to focus 
+        specifically on the Arctic Circle so the visualization would be less 
+        overwhelming for viewers and would perform more smoothly with less lag. 
+        We used a warm color palette ranging from yellow to red so viewers could 
+        naturally associate the colors with increasing heat intensity, making hotspots 
+        easier to identify quickly.
+
+        To further reduce lag, we binned the latitude and longitude values and 
+        used small rectangles to represent aggregated regions instead of plotting
+        every raw data point individually. We also added interactive elements such 
+        as a dropdown menu for switching metrics, brushing and filtering through 
+        the histogram, and hover tooltips that display latitude, longitude, total 
+        heat days, and extra heat days. Before choosing the final design, we 
+        experimented with several different visualizations including line plots, maps,
+        and heatmaps. After implementing the visualization in D3, we initially used
+        polygons that fit the map more precisely, but this created significant lag and bugs. 
+        We then switched to circles, which improved performance but did not look as 
+        aesthetically appealing. In the end, we settled on rectangles because they both 
+        reduced lag and created a cleaner, more aesthetically balanced visualization.
+
+
       </p>
 
     </section>
 
-    <section>
-
-      <h2>Data Transformations</h2>
-
-      <p>
-        Data is loaded from
-        <code>arctic_data.csv</code>.
-        Longitudes above 180° are converted into the
-        −180° to 180° range for D3 projection compatibility.
-      </p>
-
-      <pre>
-heat_df  = heatwave_days.to_dataframe(name='heatDays').reset_index()
-
-extra_df = extra_days.to_dataframe(name='extraDays').reset_index()
-
-df = heat_df.merge(extra_df, on=['lat','lon'])
-
-df[['lat','lon','heatDays','extraDays']]
-  .dropna()
-  .to_csv('arctic_data.csv', index=False)
-      </pre>
-
-    </section>
-
+   
     <section>
 
       <h2>Development Process</h2>
 
       <p>
-        I first attempted to reproduce the original Arctic map using
-        individual SVG polygons for every climate grid cell. However,
-        the full-resolution dataset created too many projected paths
-        and significantly slowed browser rendering.
+        The initial EDA portion of this assignment was split evenly between all members, and we all spent time exploring and understanding the CMIP6 climate data together. A large part of the project involved figuring out the structure of the data, cleaning it, and determining which variables and trends would be the most meaningful to visualize. We each created our own plots and visualization ideas during the early stages of the project before ultimately deciding to continue with a design that Jamera came up with because it communicated the geographic patterns most clearly.
       </p>
 
       <p>
-        To improve performance, I spatially aggregated nearby grid
-        cells and rendered them as lightweight polygons with D3.js.
-        Additional interactivity was added through a metric toggle,
-        tooltip hover interactions, dynamic legends, and a brushable
-        histogram filter.
-      </p>
-
-      <p>
-        Approximate development time: ___ people-hours.
+        The webpage setup and write-up were completed collaboratively by Jessica and Parisa, while the visualization itself was worked on by all three team members together. Parisa contributed approximately 6 hours, Jessica contributed approximately 6 hours, and Jamera contributed approximately 8 hours. The most time-consuming part of the project was the exploratory data analysis and understanding the CMIP6 datasets before we could begin implementing the final visualization and interactive features.
       </p>
 
     </section>
