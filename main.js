@@ -110,25 +110,44 @@ function drawMap() {
 
   svg.selectAll("*").remove();
 
-  svg.append("path")
-    .datum({ type: "Sphere" })
-    .attr("d", path)
-    .attr("fill", "#ffffff")
-    .attr("stroke", "#000")
-    .attr("stroke-width", 1.2);
+  svg.append("defs").append("clipPath")
+  .attr("id", "sphere-clip")
+  .append("circle")
+  .attr("cx", SIZE / 2)
+  .attr("cy", SIZE / 2)
+  .attr("r", SIZE * 0.49);
+
+ svg.append("path")
+  .datum({ type: "Sphere" })
+  .attr("d", path)
+  .attr("fill", "none")
+  .attr("stroke", "none");
 
   svg.append("path")
     .datum(d3.geoGraticule().step([30, 10])())
     .attr("d", path)
     .attr("fill", "none")
-    .attr("stroke", "#888")
+    .attr("stroke", "#a6a8a7")
     .attr("stroke-width", 0.5)
-    .attr("opacity", 0.45);
+    .attr("opacity", 0.45)
+    .attr("clip-path", "url(#sphere-clip)");
+  
 
     d3.json("https://raw.githubusercontent.com/holtzy/D3-graph-gallery/master/DATA/world.geojson")
     .then(world => {
       // draw heat polygons first
       drawCells(svg, proj);
+      svg.select(".cells-layer").attr("clip-path", "url(#sphere-clip)");  
+
+    // overlay for land (remove if not wanted)
+    svg.append("path")
+      .datum(world)
+      .attr("d", path)
+      .attr("fill", "rgba(100, 97, 97, 0.18)")
+      .attr("stroke", "none")
+      .style("pointer-events", "none")
+      .attr("clip-path", "url(#sphere-clip)");
+
   
       // white halo behind coastline
       svg.append("path")
@@ -138,7 +157,8 @@ function drawMap() {
         .attr("stroke", "#ffffff")
         .attr("stroke-width", 4.5)
         .attr("stroke-opacity", 0.95)
-        .style("pointer-events", "none");
+        .style("pointer-events", "none")
+        .attr("clip-path", "url(#sphere-clip)");
   
       // black coastline on top
       svg.append("path")
@@ -148,7 +168,54 @@ function drawMap() {
         .attr("stroke", "#000000")
         .attr("stroke-width", 2)
         .attr("stroke-opacity", 1)
-        .style("pointer-events", "none");
+        .style("pointer-events", "none")
+        .attr("clip-path", "url(#sphere-clip)");
+
+      const latLabels = [62, 72, 82];
+      latLabels.forEach(lat => {
+        [0, 180].forEach(lon => {
+          const pt = proj([lon, lat]);
+          if (!pt) return;
+          svg.append("text")
+            .attr("x", pt[0])
+            .attr("y", pt[1] - 3)
+            .attr("font-size", 9)
+            .attr("fill", "#333")
+            .attr("text-anchor", "middle")
+            .attr("paint-order", "stroke")
+            .attr("stroke", "white")
+            .attr("stroke-width", 3)
+            .attr("stroke-linejoin", "round")
+            .text(`${lat}°N`);
+        });
+      });
+
+      // Longitude spoke labels — projected just outside the circle boundary
+      const lonLabels = d3.range(-180, 180, 30);
+      const cx = SIZE / 2;
+      const cy = SIZE / 2;
+      const r = SIZE * 0.49;
+
+      lonLabels.forEach(lon => {
+        const pt = proj([lon, 55]);
+        if (!pt) return;
+
+        // compute direction from center and push label outside the circle
+        const dx = pt[0] - cx;
+        const dy = pt[1] - cy;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        const scale = (r + 14) / dist;
+
+        svg.append("text")
+          .attr("x", cx + dx * scale)
+          .attr("y", cy + dy * scale)
+          .attr("font-size", 9)
+          .attr("fill", "#333")
+          .attr("text-anchor", "middle")
+          .attr("alignment-baseline", "middle")
+          .text(`${lon}°`);
+        });
+
     });
 }
 
@@ -266,10 +333,15 @@ function drawBrush() {
     .domain(xScale.domain())
     .thresholds(xScale.ticks(24))(values);
 
-  const yScale = d3.scaleLinear()
-    .domain([0, d3.max(bins, d => d.length)])
-    .nice()
-    .range([iH, 0]);
+  // const yScale = d3.scaleLinear()
+  //   .domain([0, d3.max(bins, d => d.length)])
+  //   .nice()
+  //   .range([iH, 0]);
+
+  // make it show better by using sqrt scaling
+  const yScale = d3.scaleSqrt()
+  .domain([0, d3.max(bins, d => d.length)])
+  .range([iH, 0]);
 
   const g = svg.append("g")
     .attr("transform", `translate(${margin.l},${margin.t})`);
