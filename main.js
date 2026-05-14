@@ -262,7 +262,7 @@ function drawCells(svg, proj) {
           <strong>${d.lat.toFixed(1)}°N, ${d.lonNorm.toFixed(1)}°</strong><br>
           Heat days: <strong>${d.heatDays.toFixed(1)}</strong><br>
           Extra days: <strong>${d.extraDays > 0 ? "+" : ""}${d.extraDays.toFixed(1)}</strong><br>
-          Original points: <strong>${d.count}</strong>
+          <strong>${d.count}</strong> observations aggregated
         `);
     })
     .on("mouseleave", () => tooltip.style("opacity", 0));
