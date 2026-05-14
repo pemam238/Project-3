@@ -133,7 +133,7 @@ function drawMap() {
     .attr("clip-path", "url(#sphere-clip)");
   
 
-    d3.json("https://raw.githubusercontent.com/holtzy/D3-graph-gallery/master/DATA/world.geojson")
+    d3.json("world.geojson")
     .then(world => {
       // draw heat polygons first
       drawCells(svg, proj);
