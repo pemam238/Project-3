@@ -1,4 +1,5 @@
-const SIZE = 500;
+const SIZE = 900;
+const MAP_RADIUS = SIZE * 0.39;
 const CELL_SIZE = 4;
 const CELL_PAD = CELL_SIZE * 0.08;
 
@@ -99,7 +100,7 @@ function makeProjection() {
   return d3.geoAzimuthalEqualArea()
     .rotate([0, -90])
     .clipAngle(35)
-    .scale(SIZE * 0.60)
+    .scale(SIZE * 0.74)
     .translate([SIZE / 2, SIZE / 2]);
 }
 
@@ -115,7 +116,7 @@ function drawMap() {
   .append("circle")
   .attr("cx", SIZE / 2)
   .attr("cy", SIZE / 2)
-  .attr("r", SIZE * 0.31);
+  .attr("r", MAP_RADIUS);
 
  svg.append("path")
   .datum({ type: "Sphere" })
@@ -194,7 +195,7 @@ function drawMap() {
       const lonLabels = d3.range(-180, 180, 30);
       const cx = SIZE / 2;
       const cy = SIZE / 2;
-      const r = SIZE * 0.31;
+      const r = MAP_RADIUS;
 
       lonLabels.forEach(lon => {
         const pt = proj([lon, 55]);
@@ -410,7 +411,7 @@ function applyFilter() {
 
   document.getElementById("brushInfo").innerHTML = currentRange
     ? `Filtering <span>${currentRange[0].toFixed(1)}–${currentRange[1].toFixed(1)}</span> ${metricConfig[currentMetric].label}`
-    : "Showing all values";
+    : "Highlight/select from all values";
 }
 
 function updateMetric() {

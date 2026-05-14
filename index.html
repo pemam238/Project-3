@@ -1,582 +1,168 @@
-<!-- <!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Extreme Arctic Heat Days</title>
-  
-    <script src="https://d3js.org/d3.v7.min.js"></script>
-  
-    <link rel="stylesheet" href="styles.css">
-  </head>
-
-<body>
-  <header>
-    <h1>Extreme Arctic Heat Becomes More Frequent Under Abrupt CO&#x2082; Quadrupling</h1>
-    <p>
-      Arctic summer temperature extremes compared against an early-period 95th percentile threshold.
-    </p>
-  </header>
-
-  <main>
-    <section>
-      <h2>Visualization</h2>
-      <p>
-        Each dot represents a grid point above ~60°N. Use the dropdown to switch metrics,
-        brush the histogram to filter values, and hover points for exact data.
-      </p>
-
-      <div class="controls">
-        <label>
-          Metric:
-          <select id="metricSelect">
-            <option value="heatDays">Extreme heat days</option>
-            <option value="extraDays">Extra days beyond baseline</option>
-          </select>
-        </label>
-
-        <button id="resetFilter">Reset filter</button>
-        <span id="countLabel" style="font-size:13px; color:#6b7280;"></span>
-      </div>
-
-      <div id="loading">Loading data…</div>
-
-      <div id="viz" style="display:none;">
-        <svg id="map" viewBox="0 0 500 500"></svg>
-
-        <div class="legend-wrap">
-          <div id="colorbarTitle"></div>
-          <div id="colorbarLegend"></div>
-        </div>
-
-        <svg id="brush"></svg>
-        <div class="brush-info" id="brushInfo">Showing all values</div>
-      </div>
-    </section>
-
-    <section>
-      <h2>Design Rationale</h2>
-      <p>
-        This version uses a North Pole-centered azimuthal equal-area projection,
-        but represents each grid cell as a lightweight circle instead of a full SVG polygon.
-        This keeps the Arctic spatial pattern while making the page much faster to load.
-      </p>
-    </section>
-
-    <section>
-      <h2>Data Transformations</h2>
-      <p>
-        Data is loaded from <code>arctic_data.csv</code>. Longitudes above 180° are converted
-        to the −180 to 180 range for D3 projection.
-      </p>
-
-      <pre>
-heat_df  = heatwave_days.to_dataframe(name='heatDays').reset_index()
-extra_df = extra_days.to_dataframe(name='extraDays').reset_index()
-df = heat_df.merge(extra_df, on=['lat','lon'])
-df[['lat','lon','heatDays','extraDays']].dropna().to_csv('arctic_data.csv', index=False)</pre>
-    </section>
-
-    <section>
-      <h2>Development Process</h2>
-      <p>
-        I first attempted to reproduce the original map using SVG grid polygons, but the full
-        dataset created too many projected paths in the browser. I simplified the design by
-        plotting projected grid points as circles, then added a metric toggle, colorbar,
-        tooltip, and brush-based filtering with D3.
-      </p>
-      <p>Approximate development time: ___ people-hours.</p>
-    </section>
-  </main>
-
-  <div class="tooltip" id="tooltip"></div>
-
-  <script src="main.js"></script>
-</body>
-</html><!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Extreme Arctic Heat Days</title>
-
-  <script src="https://d3js.org/d3.v7.min.js"></script>
-
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      margin: 0;
-      background: #f7f7f7;
-      color: #222;
-    }
-
-    header {
-      background: #1f2937;
-      color: white;
-      padding: 2rem;
-      text-align: center;
-    }
-
-    header p {
-      margin: 0.5rem 0 0;
-      font-size: 14px;
-      color: #9ca3af;
-      line-height: 1.6;
-    }
-
-    main {
-      max-width: 900px;
-      margin: 2rem auto;
-      padding: 0 1rem;
-    }
-
-    section {
-      background: white;
-      padding: 1.5rem;
-      margin-bottom: 2rem;
-      border-radius: 12px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-    }
-
-    h1, h2 {
-      margin-top: 0;
-    }
-
-    .controls {
-      display: flex;
-      gap: 1rem;
-      flex-wrap: wrap;
-      margin-bottom: 1rem;
-      align-items: center;
-    }
-
-    button, select {
-      padding: 0.5rem 1rem;
-      border-radius: 6px;
-      border: 1px solid #ccc;
-      background: white;
-      cursor: pointer;
-      font-size: 13px;
-    }
-
-    button:hover {
-      background: #f3f4f6;
-    }
-
-    #map {
-      width: 100%;
-      height: auto;
-      border: 1px solid #ddd;
-      border-radius: 10px;
-      background: #c9dff0;
-      display: block;
-    }
-
-    .colorbar-canvas {
-      height: 14px;
-      border-radius: 3px;
-      border: 1px solid #d1d5db;
-      width: 100%;
-      display: block;
-      margin-top: 0.75rem;
-    }
-
-    .colorbar-labels {
-      display: flex;
-      justify-content: space-between;
-      font-size: 10px;
-      color: #6b7280;
-      margin-top: 3px;
-    }
-
-    .colorbar-title {
-      font-size: 11px;
-      color: #6b7280;
-      text-align: center;
-      margin-top: 2px;
-    }
-
-    #brush {
-      width: 100%;
-      height: 95px;
-      display: block;
-      margin-top: 1rem;
-    }
-
-    .brush-info {
-      font-size: 12px;
-      color: #6b7280;
-      margin-top: 4px;
-      text-align: center;
-    }
-
-    .brush-info span {
-      color: #2563eb;
-      font-weight: 600;
-    }
-
-    .tooltip {
-      position: fixed;
-      background: white;
-      border: 1px solid #ccc;
-      padding: 0.6rem 0.8rem;
-      border-radius: 8px;
-      pointer-events: none;
-      opacity: 0;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-      font-size: 13px;
-      line-height: 1.7;
-      z-index: 100;
-    }
-
-    .cell {
-      transition: opacity 0.15s;
-    }
-
-    .cell.dimmed {
-      opacity: 0.07 !important;
-    }
-
-    pre {
-      background: #f3f4f6;
-      padding: 1rem;
-      border-radius: 8px;
-      font-size: 13px;
-      overflow: auto;
-    }
-
-    #loading {
-      text-align: center;
-      padding: 3rem;
-      color: #6b7280;
-      font-size: 15px;
-    }
-  </style>
-</head>
-
-<body>
-  <header>
-    <h1>Extreme Arctic Heat Becomes More Frequent Under Abrupt CO&#x2082; Quadrupling</h1>
-    <p>
-      Arctic summer temperature extremes compared against an early-period 95th percentile threshold.
-    </p>
-  </header>
-
-  <main>
-    <section>
-      <h2>Visualization</h2>
-      <p>
-        Each dot represents a grid point above ~60°N. Use the dropdown to switch metrics,
-        brush the histogram to filter values, and hover points for exact data.
-      </p>
-
-      <div class="controls">
-        <label>
-          Metric:
-          <select id="metricSelect">
-            <option value="heatDays">Extreme heat days</option>
-            <option value="extraDays">Extra days beyond baseline</option>
-          </select>
-        </label>
-
-        <button id="resetFilter">Reset filter</button>
-        <span id="countLabel" style="font-size:13px; color:#6b7280;"></span>
-      </div>
-
-      <div id="loading">Loading data…</div>
-
-      <div id="viz" style="display:none;">
-        <svg id="map" viewBox="0 0 500 500"></svg>
-
-        <div style="max-width:420px; margin:0 auto;">
-          <canvas id="colorbar" class="colorbar-canvas"></canvas>
-          <div class="colorbar-labels" id="colorbarLabels"></div>
-          <div class="colorbar-title" id="colorbarTitle"></div>
-        </div>
-
-        <svg id="brush"></svg>
-        <div class="brush-info" id="brushInfo">Showing all values</div>
-      </div>
-    </section>
-
-    <section>
-      <h2>Design Rationale</h2>
-      <p>
-        This version uses a North Pole-centered azimuthal equal-area projection,
-        but represents each grid cell as a lightweight circle instead of a full SVG polygon.
-        This keeps the Arctic spatial pattern while making the page much faster to load.
-      </p>
-    </section>
-
-    <section>
-      <h2>Data Transformations</h2>
-      <p>
-        Data is loaded from <code>arctic_data.csv</code>. Longitudes above 180° are converted
-        to the −180 to 180 range for D3 projection.
-      </p>
-
-      <pre>
-heat_df  = heatwave_days.to_dataframe(name='heatDays').reset_index()
-extra_df = extra_days.to_dataframe(name='extraDays').reset_index()
-df = heat_df.merge(extra_df, on=['lat','lon'])
-df[['lat','lon','heatDays','extraDays']].dropna().to_csv('arctic_data.csv', index=False)</pre>
-    </section>
-
-    <section>
-      <h2>Development Process</h2>
-      <p>
-        I first attempted to reproduce the original map using SVG grid polygons, but the full
-        dataset created too many projected paths in the browser. I simplified the design by
-        plotting projected grid points as circles, then added a metric toggle, colorbar,
-        tooltip, and brush-based filtering with D3.
-      </p>
-      <p>Approximate development time: ___ people-hours.</p>
-    </section>
-  </main>
-
-  <div class="tooltip" id="tooltip"></div>
-
-  <script src="main.js"></script>
-</body>
-</html> -->
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
   <title>Extreme Arctic Heat Days</title>
 
   <script src="https://d3js.org/d3.v7.min.js"></script>
 
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      margin: 0;
-      background: #f7f7f7;
-      color: #222;
-    }
-
-    header {
-      background: #1f2937;
-      color: white;
-      padding: 2rem;
-      text-align: center;
-    }
-
-    header p {
-      margin: 0.5rem 0 0;
-      font-size: 14px;
-      color: #9ca3af;
-      line-height: 1.6;
-    }
-
-    main {
-      max-width: 900px;
-      margin: 2rem auto;
-      padding: 0 1rem;
-    }
-
-    section {
-      background: white;
-      padding: 1.5rem;
-      margin-bottom: 2rem;
-      border-radius: 12px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-    }
-
-    h1, h2 {
-      margin-top: 0;
-    }
-
-    .controls {
-      display: flex;
-      gap: 1rem;
-      flex-wrap: wrap;
-      margin-bottom: 1rem;
-      align-items: center;
-    }
-
-    select {
-      padding: 0.5rem 1rem;
-      border-radius: 6px;
-      border: 1px solid #ccc;
-      background: white;
-      cursor: pointer;
-      font-size: 13px;
-    }
-
-    #map {
-      width: 100%;
-      height: auto;
-      border: 1px solid #ddd;
-      border-radius: 10px;
-      background: transparent;
-      display: block;
-    }
-
-    .colorbar-canvas {
-      height: 14px;
-      border-radius: 3px;
-      border: 1px solid #d1d5db;
-      width: 100%;
-      display: block;
-      margin-top: 0.75rem;
-    }
-
-    .colorbar-labels {
-      display: flex;
-      justify-content: space-between;
-      font-size: 10px;
-      color: #6b7280;
-      margin-top: 3px;
-    }
-
-    .colorbar-title {
-      font-size: 11px;
-      color: #6b7280;
-      text-align: center;
-      margin-top: 2px;
-    }
-
-    #brush {
-      width: 100%;
-      height: 95px;
-      display: block;
-      margin-top: 1rem;
-    }
-
-    .brush-info {
-      font-size: 12px;
-      color: #6b7280;
-      margin-top: 4px;
-      text-align: center;
-    }
-
-    .brush-info span {
-      color: #2563eb;
-      font-weight: 600;
-    }
-
-    .tooltip {
-      position: fixed;
-      background: white;
-      border: 1px solid #ccc;
-      padding: 0.6rem 0.8rem;
-      border-radius: 8px;
-      pointer-events: none;
-      opacity: 0;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-      font-size: 13px;
-      line-height: 1.7;
-      z-index: 100;
-    }
-
-    .cell {
-      transition: opacity 0.15s;
-    }
-
-    .cell.dimmed {
-      opacity: 0.07 !important;
-    }
-
-    pre {
-      background: #f3f4f6;
-      padding: 1rem;
-      border-radius: 8px;
-      font-size: 13px;
-      overflow: auto;
-    }
-
-    #loading {
-      text-align: center;
-      padding: 3rem;
-      color: #6b7280;
-      font-size: 15px;
-    }
-  </style>
+  <link rel="stylesheet" href="styles.css">
 </head>
 
 <body>
+
   <header>
-    <h1>Extreme Arctic Heat Becomes More Frequent Under Abrupt CO&#x2082; Quadrupling</h1>
+    <h1>
+      Extreme Arctic Heat Becomes More Frequent Under Abrupt CO₂ Quadrupling
+    </h1>
+
     <p>
-      Arctic summer temperature extremes compared against an early-period 95th percentile threshold.
+      Arctic summer temperature extremes compared against an early-period
+      95th percentile threshold.
     </p>
   </header>
 
   <main>
+
     <section>
+
       <h2>Visualization</h2>
+
       <p>
-        Each dot represents a grid point above ~60°N. Use the dropdown to switch metrics,
-        brush the histogram to filter values, and hover points for exact data.
+        Each dot represents a grid point above ~60°N. Use the dropdown
+        to switch metrics, brush the histogram to filter values,
+        and hover points for exact data.
       </p>
 
       <div class="controls">
+
         <label>
           Metric:
+
           <select id="metricSelect">
-            <option value="heatDays">Extreme heat days</option>
-            <option value="extraDays">Extra days beyond baseline</option>
+            <option value="heatDays">
+              Extreme heat days
+            </option>
+
+            <option value="extraDays">
+              Extra days beyond baseline
+            </option>
           </select>
         </label>
 
-        <span id="countLabel" style="font-size:13px; color:#6b7280;"></span>
+        <button id="resetFilter">
+          Reset filter
+        </button>
+
+        <span id="countLabel"></span>
+
       </div>
 
-      <div id="loading">Loading data…</div>
+      <div id="loading">
+        Loading data…
+      </div>
 
       <div id="viz" style="display:none;">
-        <svg id="map" viewBox="0 0 340 340"></svg>
 
-        <div style="max-width:420px; margin:0 auto;">
-          <canvas id="colorbar" class="colorbar-canvas"></canvas>
-          <div class="colorbar-labels" id="colorbarLabels"></div>
-          <div class="colorbar-title" id="colorbarTitle"></div>
+        <div class="map-layout">
+
+          <svg id="map" viewBox="0 0 900 900"></svg>
+        
+          <div class="legend-wrap">
+            <div id="colorbarTitle"></div>
+            <div id="colorbarLegend"></div>
+          </div>
+        
         </div>
 
+        <!-- BRUSH -->
         <svg id="brush"></svg>
-        <div class="brush-info" id="brushInfo">Showing all values</div>
+
+        <div class="brush-info" id="brushInfo">
+          Highlight/select from all values
+        </div>
+
       </div>
+
     </section>
 
     <section>
+
       <h2>Design Rationale</h2>
+
       <p>
-        This version uses a North Pole-centered azimuthal equal-area projection,
-        but represents each grid cell as a lightweight circle instead of a full SVG polygon.
-        This keeps the Arctic spatial pattern while making the page much faster to load.
+        This version uses a North Pole-centered azimuthal equal-area
+        projection, but represents each grid cell as a lightweight
+        polygon instead of a full-resolution raster or SVG-heavy map.
+        This preserves Arctic spatial patterns while keeping the page
+        performant and interactive in the browser.
       </p>
+
     </section>
 
     <section>
+
       <h2>Data Transformations</h2>
+
       <p>
-        Data is loaded from <code>arctic_data.csv</code>. Longitudes above 180° are converted
-        to the −180 to 180 range for D3 projection.
+        Data is loaded from
+        <code>arctic_data.csv</code>.
+        Longitudes above 180° are converted into the
+        −180° to 180° range for D3 projection compatibility.
       </p>
 
       <pre>
 heat_df  = heatwave_days.to_dataframe(name='heatDays').reset_index()
+
 extra_df = extra_days.to_dataframe(name='extraDays').reset_index()
+
 df = heat_df.merge(extra_df, on=['lat','lon'])
-df[['lat','lon','heatDays','extraDays']].dropna().to_csv('arctic_data.csv', index=False)</pre>
+
+df[['lat','lon','heatDays','extraDays']]
+  .dropna()
+  .to_csv('arctic_data.csv', index=False)
+      </pre>
+
     </section>
 
     <section>
+
       <h2>Development Process</h2>
+
       <p>
-        I first attempted to reproduce the original map using SVG grid polygons, but the full
-        dataset created too many projected paths in the browser. I simplified the design by
-        plotting projected grid points as circles, then added a metric toggle, colorbar,
-        tooltip, and brush-based filtering with D3.
+        I first attempted to reproduce the original Arctic map using
+        individual SVG polygons for every climate grid cell. However,
+        the full-resolution dataset created too many projected paths
+        and significantly slowed browser rendering.
       </p>
-      <p>Approximate development time: ___ people-hours.</p>
+
+      <p>
+        To improve performance, I spatially aggregated nearby grid
+        cells and rendered them as lightweight polygons with D3.js.
+        Additional interactivity was added through a metric toggle,
+        tooltip hover interactions, dynamic legends, and a brushable
+        histogram filter.
+      </p>
+
+      <p>
+        Approximate development time: ___ people-hours.
+      </p>
+
     </section>
+
   </main>
+
+  <!-- TOOLTIP -->
 
   <div class="tooltip" id="tooltip"></div>
 
+  <!-- MAIN JS -->
+
   <script src="main.js"></script>
+
 </body>
+
 </html>

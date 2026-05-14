@@ -28,7 +28,7 @@ body {
   }
   
   main {
-    max-width: 600px;
+    max-width: 900px; /* was 600px */
     margin: 2rem auto;
     padding: 0 1rem;
   }
@@ -78,16 +78,35 @@ body {
     color: #64748b;
   }
   
+  .map-layout {
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 1.5rem;
+    /* no flex-wrap */
+  }
+  
   #map {
     width: 100%;
-    max-width: 320px;
+    max-width: 600px;  /* map takes up to 600px, legend gets the rest */
     height: auto;
-    margin: 0 auto;
-  
+    flex: 1 1 auto;
+    min-width: 0;
     border: 1px solid #ddd;
     border-radius: 10px;
     background: transparent;
     display: block;
+  }
+  
+  .legend-wrap {
+    flex: 0 0 auto;   /* don't grow or shrink — stay fixed width */
+    min-width: 150px;
+    max-width: 170px;
+    padding: 1rem;
+    background: #f8fafc;
+    border-radius: 12px;
+    border: 1px solid #e2e8f0;
+    align-self: flex-start; /* stick to top of map */
   }
   
   #brush {
@@ -157,10 +176,14 @@ body {
   /* LEGEND */
   
   .legend-wrap {
-    margin-top: 18px;
-    padding: 0.8rem 1rem;
+    min-width: 170px;
+  
+    padding: 1rem;
+  
     background: #f8fafc;
+  
     border-radius: 12px;
+  
     border: 1px solid #e2e8f0;
   }
   
@@ -173,8 +196,8 @@ body {
   
   #colorbarLegend {
     display: flex;
-    flex-wrap: wrap;
-    gap: 10px 14px;
+    flex-direction: column;
+    gap: 8px;
   }
   
   .legend-item {
