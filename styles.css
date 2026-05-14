@@ -214,3 +214,11 @@ body {
     border-radius: 3px;
     border: 1px solid rgba(0,0,0,0.12);
   }
+
+  .viz-subtitle {
+    margin-top: -0.4rem;
+    margin-bottom: 1.4rem;
+    color: #6b7280;
+    font-size: 1rem;
+    line-height: 1.5;
+  }
